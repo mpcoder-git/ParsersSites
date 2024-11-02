@@ -3,14 +3,18 @@ import  fake_useragent
 import re
 import csv
 from bs4 import BeautifulSoup
+import time
 
 links = []
 list_emails = []
+unique_list_emails = []
 
 #проверка доступности сайта
 def check_website(url):
+    ua = fake_useragent.UserAgent()
+    headers = {"user-agent": ua.random}
     try:
-        response = requests.get(url, timeout=3)
+        response = requests.get(url, headers=headers, timeout=3)
         if response.status_code == 200:
             return True
         else:
@@ -26,6 +30,12 @@ def check_website(url):
 def extract_emails(url):
     ua = fake_useragent.UserAgent()
     headers = {"user-agent": ua.random}
+    check1 = check_website(url)
+    
+    if not check1:
+        url = url.replace("http://", "https://www.")
+        print('query new address' + url)
+        time.sleep(1)
     try:
         response = requests.get(url, headers=headers, timeout=5)
         response.raise_for_status()
@@ -34,6 +44,9 @@ def extract_emails(url):
         return
     except requests.exceptions.RequestException as e:
         print('Error: ', e)
+
+
+
 
     if (response.status_code == 200):
         print(url + ' OK')
@@ -64,11 +77,14 @@ def return_impressum(url,domain):
     for link in soup.find_all('a'):
         href = link.get('href')
         if href and not href.startswith('#'):
+            if not href.startswith('/') and  not href.startswith('http'):
+                href = '/'+href                          
             index_href = href.find(domain)
             if index_href != -1:
                 links_impr.append(href)
             else:
-                links_impr.append(url + href)
+                if not href.startswith('http'):
+                    links_impr.append(url + href)
     if len(links_impr) > 0:
         for i in range(0, len(links_impr)):
             s = links_impr[i]
@@ -123,17 +139,17 @@ def printmails():
     c = int(input("\nExtraction Complete  ||   Enter 0 to print output, 1 to save file & 2 for both  & 3 save to csv: "))
     if c==1:
         with open('mails_out.txt', 'w') as f:
-            for i in list_emails:
+            for i in unique_list_emails:
                 if i not in res:
                     f.write("%s\n" % i)
     elif c==0:
-        for i in list_emails:
+        for i in unique_list_emails:
             if i not in res:
                 print(i)
                 res.append(i)
     elif c==2:
         with open('mails_out.txt', 'w') as f:
-            for i in list_emails:
+            for i in unique_list_emails:
                 if i not in res:
                     print(i)
                     f.write("%s\n" % i)
@@ -143,7 +159,7 @@ def printmails():
             file_writer = csv.writer(w_file, delimiter=";", lineterminator="\r")
             #file_writer.writerow(["Имя", "Класс", "Возраст"])
             file_writer.writerow(["Email"])
-            for email in list_emails:
+            for email in unique_list_emails:
                 file_writer.writerow([email])
 
     else:
@@ -161,6 +177,8 @@ def main():
                     list_emails.append(email)
             except Exception as e:
                 continue
+        for email in list_emails:
+            unique_list_emails.append(email)
         printmails()
 
 
