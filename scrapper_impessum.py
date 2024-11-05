@@ -5,75 +5,96 @@ import csv
 from bs4 import BeautifulSoup
 import time
 
+
 links = []
 list_emails = []
 unique_list_emails = []
+rescan_domains = []
 
 #проверка доступности сайта
 def check_website(url):
+    global response1
     ua = fake_useragent.UserAgent()
     headers = {"user-agent": ua.random}
     try:
-        response = requests.get(url, headers=headers, timeout=3)
-        if response.status_code == 200:
+        response1 = requests.get(url, headers=headers, timeout=3)
+        if response1.status_code == 200:
             return True
         else:
             return False
     except requests.exceptions.ConnectTimeout:
+        #print(response1.status_code)
         return False
     except requests.ConnectionError:
+        #print(response1.status_code)
         return False
     except requests.exceptions.RequestException as e:
-        print('Error: ', e)
+        if response1.status_code == 451:
+            print('The site ' + url + ' is blocked for legal reasons. For access use vpn')
+        else:
+            #print(response1.status_code)
+            print('Error: ', e)
+            print('add domain '+url+' to rescan list')
+            rescan_domains.append(url)
+
 
 #извлечение почты
 def extract_emails(url):
     ua = fake_useragent.UserAgent()
     headers = {"user-agent": ua.random}
+
     check1 = check_website(url)
     
     if not check1:
         url = url.replace("http://", "https://www.")
-        print('query new address' + url)
+        print('query new address ' + url)
         time.sleep(1)
     try:
         response = requests.get(url, headers=headers, timeout=5)
         response.raise_for_status()
+
+        if (response.status_code == 200):
+            print(url + ' OK')
+            emails = re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', response.text)
+            unique_emails = list(set(emails))
+        return unique_emails
     except requests.exceptions.ConnectTimeout:
         print(url +" Error coonect: time out.")
         return
+    except requests.ConnectionError:
+        print(url +" connection error.")
+        return
     except requests.exceptions.RequestException as e:
+        print(response.status_code)
         print('Error: ', e)
+        return
 
 
 
-
-    if (response.status_code == 200):
-        print(url + ' OK')
-        emails = re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', response.text)
-        unique_emails = list(set(emails))
-
-    return unique_emails
 
 
 #
 def return_impressum(url,domain):
+    global response2
     substr = "impressum"
     print('extract all links for ' + url)
     try:
-        response = requests.get(url, timeout=3)
+        response2 = requests.get(url, timeout=3)
     except requests.exceptions.ConnectTimeout:
+        print(response2.status_code)
+        print(url +" Error coonect: time out.")
         return None
     except requests.ConnectionError:
         return None
     except requests.exceptions.RequestException as e:
         print('Error: ', e)
+        print(response2.status_code)
         return None
 
-    soup = BeautifulSoup(response.text, 'html.parser')
+    soup = BeautifulSoup(response2.text, 'html.parser')
 
     links_impr = []
-
+    href = ''
     for link in soup.find_all('a'):
         href = link.get('href')
         if href and not href.startswith('#'):
@@ -168,8 +189,14 @@ def printmails():
 
 def main():
     txt_to_list()
+    if len(rescan_domains) > 0:
+        with open('out_rescandomains.txt', 'w') as f:
+            for domain in rescan_domains:
+                f.write("%s\n" % domain)
+            print('save rescan file. scan this file separately')
+    rescan_domains.clear()
     if len(links) > 0:
-        print("Scanning:-")
+        print("Extracting emails process start:-")
         for lnk in links:
             try:
                 emails = extract_emails(lnk)
@@ -179,6 +206,12 @@ def main():
                 continue
         for email in list_emails:
             unique_list_emails.append(email)
+        if len(rescan_domains) > 0:
+            with open('out_rescancontactspages.txt', 'w') as f:
+                for domain in rescan_domains:
+                    f.write("%s\n" % domain)
+                print('save rescan file with links to contact pages. scan this file separately')
+
         printmails()
 
 
