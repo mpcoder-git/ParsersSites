@@ -18,6 +18,7 @@ def check_website(url):
     headers = {"user-agent": ua.random}
     try:
         response1 = requests.get(url, headers=headers, timeout=3)
+        response1.raise_for_status()
         if response1.status_code == 200:
             return True
         else:
@@ -28,6 +29,29 @@ def check_website(url):
     except requests.ConnectionError:
         #print(response1.status_code)
         return False
+    except requests.exceptions.HTTPError as errh:
+        print ("Http Error:",errh)
+        return False
+    except requests.exceptions.URLRequired:
+        print('URL не указан')
+        return False
+    except requests.exceptions.InvalidURL:
+        print('Некорректный URL')
+    #except requests.exceptions.ArgumentError as e:
+    #    print('Ошибка аргумента' + e)
+    #    return False
+    except requests.exceptions.MissingSchema:
+        print('Схема URL отсутствует')
+        return False
+    except requests.exceptions.InvalidSchema:
+        print('Некорректная схема')
+        return False
+    except requests.exceptions.InvalidHeader:
+        print('Некорректный заголовок')
+        return False
+    except requests.exceptions.InvalidProxyURL:
+        print('Некорректный URL прокси')
+        return False
     except requests.exceptions.RequestException as e:
         if response1.status_code == 451:
             print('The site ' + url + ' is blocked for legal reasons. For access use vpn')
@@ -36,7 +60,10 @@ def check_website(url):
             print('Error: ', e)
             print('add domain '+url+' to rescan list')
             rescan_domains.append(url)
-
+    except Exception as e:
+        print("unknown error in domain: " + url , e)
+        return False
+    
 
 #извлечение почты
 def extract_emails(url):
@@ -68,6 +95,9 @@ def extract_emails(url):
         print(response.status_code)
         print('Error: ', e)
         return
+    except Exception as e:
+        print("unknown error in link: " + url , e)
+        return
 
 
 
@@ -89,6 +119,9 @@ def return_impressum(url,domain):
     except requests.exceptions.RequestException as e:
         print('Error: ', e)
         print(response2.status_code)
+        return None
+    except Exception as e:
+        print("unknown error in link: " + url , e)
         return None
 
     soup = BeautifulSoup(response2.text, 'html.parser')
@@ -213,6 +246,7 @@ def main():
                 print('save rescan file with links to contact pages. scan this file separately')
 
         printmails()
+        print('the end!')
 
 
 main()
